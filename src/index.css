@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --color-bg: #E4E3E0;
+  --color-ink: #141414;
+  --color-line: #141414;
+  --color-card: #FFFFFF;
+  --color-accent: #10b981; /* emerald-500 */
+}
+
+.dark {
+  --color-bg: #0a0a0a;
+  --color-ink: #f5f5f5;
+  --color-line: #262626;
+  --color-card: #171717;
+  --color-accent: #10b981;
+}
+
+@layer base {
+  body {
+    @apply bg-[var(--color-bg)] text-[var(--color-ink)] font-sans antialiased transition-colors duration-300;
+  }
+}
+
+.data-row {
+  @apply grid grid-cols-[40px_1.5fr_1fr_1fr_1fr] p-4 border-b border-[var(--color-line)] transition-colors duration-200 cursor-pointer hover:bg-[var(--color-ink)] hover:text-[var(--color-bg)];
+}
+
+.col-header {
+  @apply font-serif italic text-[11px] opacity-50 uppercase tracking-wider;
+}
+
+.data-value {
+  @apply font-mono tracking-tighter;
+}
+
+.card-shadow {
+  box-shadow: 4px 4px 0px 0px var(--color-line);
+}
+

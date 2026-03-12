@@ -1,0 +1,5 @@
+{
+  "name": "Astra Job Bot",
+  "description": "An autonomous-style job application command center for high-achieving engineering candidates. Features AI-powered job search, application tracking, and automated response generation.",
+  "requestFramePermissions": []
+}
