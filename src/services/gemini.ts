@@ -2,8 +2,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-export const searchJobs = async (keywords: string[]) => {
-  const prompt = `Find 5 recent job openings for a fresher in India for the following roles: ${keywords.join(", ")}. 
+export const searchJobs = async (keywords: string[], location: string = "India") => {
+  const prompt = `Find 5 recent job openings for a fresher in ${location} for the following roles: ${keywords.join(", ")}. 
   Candidate Profile: B.Tech EEE, CGPA 8.5, NASA Space Apps Winner, Efftronics Internship.
   Return the results as a JSON array of objects with: company, role, platform, job_url, and a brief reason why it's a good fit.`;
 

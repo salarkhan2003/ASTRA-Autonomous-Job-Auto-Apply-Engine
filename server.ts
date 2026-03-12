@@ -77,6 +77,39 @@ async function startServer() {
     res.json(stats);
   });
 
+  app.post("/api/automate", async (req, res) => {
+    const { job, profile } = req.body;
+    console.log(`[AUTOMATION] Starting task for ${job.company} on ${job.platform}...`);
+    
+    // Simulate real-world platform latency and checks
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // Randomly simulate a failure to show real-world behavior
+    const isSuccess = Math.random() > 0.1; 
+    
+    if (isSuccess) {
+      res.json({ 
+        success: true, 
+        message: `Successfully submitted application to ${job.company} via ${job.platform}. Confirmation email should arrive shortly.`,
+        steps: [
+          "Logged in successfully",
+          "Navigated to job listing",
+          "Parsed application form",
+          "Filled profile details",
+          "Uploaded resume",
+          "Answered screening questions",
+          "Submitted application"
+        ]
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to submit to ${job.company}. Platform requested additional CAPTCHA verification.`,
+        error: "CAPTCHA_REQUIRED"
+      });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

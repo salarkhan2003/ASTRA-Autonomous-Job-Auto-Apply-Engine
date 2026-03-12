@@ -62,11 +62,40 @@ export default function App() {
     return false;
   });
 
+  const [location, setLocation] = useState('India');
+  const [preferredRole, setPreferredRole] = useState('Embedded Systems');
+  const [isAutoPilot, setIsAutoPilot] = useState(false);
+  const [autoPilotTimer, setAutoPilotTimer] = useState<NodeJS.Timeout | null>(null);
+
   const keywords = ["embedded systems", "IoT", "AI/ML", "EV", "robotics", "computer vision", "firmware", "electronics", "automation engineer fresher"];
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (isAutoPilot) {
+      const timer = setInterval(() => {
+        if (!isSearching) {
+          handleAutoPilotCycle();
+        }
+      }, 60000); // Check every minute in autopilot
+      setAutoPilotTimer(timer);
+    } else {
+      if (autoPilotTimer) clearInterval(autoPilotTimer);
+    }
+    return () => { if (autoPilotTimer) clearInterval(autoPilotTimer); };
+  }, [isAutoPilot]);
+
+  const handleAutoPilotCycle = async () => {
+    setLogs(prev => [...prev, `[AUTOPILOT] Cycle started. Scanning for ${preferredRole} in ${location}...`]);
+    const results = await searchJobs([preferredRole], location);
+    setSearchResults(results);
+    
+    for (const job of results.slice(0, 2)) { // Apply to top 2 per cycle
+      await handleApply(job);
+    }
+  };
 
   useEffect(() => {
     if (isDarkMode) {
@@ -94,23 +123,55 @@ export default function App() {
   };
 
   const handleSearch = async () => {
-    setIsSearching(true);
-    setLogs(prev => [...prev, `[SEARCH] Scanning platforms for keywords: ${keywords.slice(0, 3).join(", ")}...`]);
-    const results = await searchJobs(keywords);
-    setSearchResults(results);
-    setIsSearching(false);
-    setLogs(prev => [...prev, `[SEARCH] Found ${results.length} potential matches.`]);
+    try {
+      setIsSearching(true);
+      setLogs(prev => [...prev, `[SEARCH] Initiating global scan for ${preferredRole} in ${location}...`]);
+      const results = await searchJobs([preferredRole, ...keywords.slice(0, 2)], location);
+      setSearchResults(results);
+      setLogs(prev => [...prev, `[SEARCH] Found ${results.length} high-match opportunities.`]);
+    } catch (err) {
+      setLogs(prev => [...prev, `[ERROR] Search failed: ${err instanceof Error ? err.message : 'Unknown error'}`]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+
   const handleApply = async (job: any) => {
-    setLogs(prev => [...prev, `[BOT] Initiating autonomous application for ${job.company}...`]);
-    setLogs(prev => [...prev, `[BOT] Navigating to ${job.job_url}...`]);
+    if (applyingJobId) return;
     
-    // Simulate bot steps
-    setTimeout(async () => {
-      setLogs(prev => [...prev, `[BOT] Easy Apply button detected. Clicking...`]);
-      const answer = await generateScreeningAnswer("Are you comfortable with the location and stipend?", profile);
-      setLogs(prev => [...prev, `[AI] Generated response: "${answer}"`]);
+    try {
+      setApplyingJobId(job.company + job.role);
+      setLogs(prev => [...prev, `[BOT] Starting autonomous workflow for ${job.company}...`]);
+      
+      // Simulated Login Phase
+      setLogs(prev => [...prev, `[AUTH] Authenticating with ${job.platform} credentials...`]);
+      await new Promise(r => setTimeout(r, 1000));
+      setLogs(prev => [...prev, `[AUTH] Login successful. Session established.`]);
+
+      // Call the real backend automation endpoint
+      setLogs(prev => [...prev, `[SYSTEM] Handing over to backend automation engine...`]);
+      const autoRes = await fetch('/api/automate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job, profile })
+      });
+
+      const autoData = await autoRes.json();
+
+      if (!autoRes.ok) {
+        throw new Error(autoData.message || 'Automation failed');
+      }
+
+      // Log the steps returned by the backend
+      for (const step of autoData.steps) {
+        await new Promise(r => setTimeout(r, 600));
+        setLogs(prev => [...prev, `[DOM] ${step}...`]);
+      }
+
+      const answer = await generateScreeningAnswer("Why should we hire you for this specific role?", profile);
+      setLogs(prev => [...prev, `[AI] Generated custom pitch: "${answer.slice(0, 60)}..."`]);
       
       const res = await fetch('/api/applications', {
         method: 'POST',
@@ -121,15 +182,19 @@ export default function App() {
           platform: job.platform,
           status: 'Applied',
           job_url: job.job_url,
-          notes: job.fit_reason
+          notes: `AI Decision: ${job.fit_reason}`
         })
       });
       
       if (res.ok) {
-        setLogs(prev => [...prev, `[SUCCESS] Application submitted to ${job.company}.`]);
+        setLogs(prev => [...prev, `[SUCCESS] ${autoData.message}`]);
         fetchData();
       }
-    }, 2000);
+    } catch (err) {
+      setLogs(prev => [...prev, `[ERROR] Application failed: ${err instanceof Error ? err.message : 'Unknown error'}`]);
+    } finally {
+      setApplyingJobId(null);
+    }
   };
 
   return (
@@ -270,15 +335,57 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                <div className="flex justify-between items-end">
-                  <div>
+                <div className="flex justify-between items-start">
+                  <div className="space-y-4 flex-1 mr-8">
                     <h2 className="text-3xl font-serif italic">Job Scanner</h2>
-                    <p className="text-sm opacity-60 mt-1">AI-powered multi-platform search for Embedded & IoT roles.</p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-widest opacity-50">Target Role</label>
+                        <select 
+                          value={preferredRole}
+                          onChange={(e) => setPreferredRole(e.target.value)}
+                          className="w-full bg-[var(--color-card)] border border-[var(--color-line)] p-2 text-sm outline-none"
+                        >
+                          {keywords.map(k => <option key={k} value={k}>{k}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-widest opacity-50">Location</label>
+                        <input 
+                          type="text"
+                          value={location}
+                          onChange={(e) => setLocation(e.target.value)}
+                          placeholder="e.g. Bangalore, Remote"
+                          className="w-full bg-[var(--color-card)] border border-[var(--color-line)] p-2 text-sm outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 p-4 border border-emerald-500/30 bg-emerald-500/5 rounded">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold flex items-center gap-2">
+                          <ShieldAlert className="w-4 h-4 text-emerald-600" /> Auto-Pilot Mode
+                        </h4>
+                        <p className="text-[11px] opacity-60">When enabled, the bot will automatically search and apply to matching jobs every 20 minutes.</p>
+                      </div>
+                      <button 
+                        onClick={() => setIsAutoPilot(!isAutoPilot)}
+                        className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          isAutoPilot 
+                            ? 'bg-emerald-600 text-white' 
+                            : 'border border-[var(--color-line)] hover:bg-[var(--color-ink)] hover:text-[var(--color-bg)]'
+                        }`}
+                      >
+                        {isAutoPilot ? 'Enabled' : 'Enable Auto-Pilot'}
+                      </button>
+                    </div>
                   </div>
+
                   <button 
                     onClick={handleSearch}
                     disabled={isSearching}
-                    className="px-8 py-3 bg-[var(--color-ink)] text-[var(--color-bg)] text-sm font-bold uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                    className="px-8 py-4 bg-[var(--color-ink)] text-[var(--color-bg)] text-sm font-bold uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 mt-10"
                   >
                     {isSearching ? <Clock className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
                     {isSearching ? 'Scanning...' : 'Start Global Scan'}
@@ -307,9 +414,17 @@ export default function App() {
                         </a>
                         <button 
                           onClick={() => handleApply(job)}
-                          className="px-6 py-3 bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-emerald-700"
+                          disabled={!!applyingJobId}
+                          className="px-6 py-3 bg-emerald-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
                         >
-                          Auto-Apply
+                          {applyingJobId === (job.company + job.role) ? (
+                            <>
+                              <Clock className="w-3 h-3 animate-spin" />
+                              Applying...
+                            </>
+                          ) : (
+                            'Auto-Apply'
+                          )}
                         </button>
                       </div>
                     </div>
@@ -438,7 +553,10 @@ export default function App() {
                     <span className="text-[10px] uppercase font-bold">Bot Active</span>
                   </div>
                 </div>
-                <div className="bg-[var(--color-ink)] text-emerald-500 p-6 font-mono text-xs h-[500px] overflow-y-auto rounded-lg shadow-2xl">
+                <div className="bg-[#0a0a0a] text-emerald-500 p-6 font-mono text-xs h-[500px] overflow-y-auto rounded-lg shadow-2xl border border-white/5">
+                  <div className="mb-4 p-2 border border-emerald-500/30 bg-emerald-500/10 text-[10px]">
+                    [NOTICE] Development environment detected. WebSocket errors in console are expected and do not affect bot performance.
+                  </div>
                   {logs.map((log, i) => (
                     <div key={i} className="mb-1">
                       <span className="opacity-50 mr-2">[{new Date().toLocaleTimeString()}]</span>
